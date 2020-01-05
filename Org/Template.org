@@ -1,0 +1,356 @@
+# -*- mode:org; -*-
+
+#+title:TITLE
+#+subtitle:SUBTITLE
+#+author:AUTHOR
+#+date:2020-01-05 08:31
+#+macro:version Version 0.0.0
+
+/{{{title}}}/ {{{version}}} compiled {{{date}}}
+
+#+texinfo:@insertcopying
+
+
+* Introduction
+:PROPERTIES:
+:unnumbered: t
+:END:
+* Chapter
+
+* Build Tools
+:PROPERTIES:
+:appendix: t
+:END:
+** Makefile
+:PROPERTIES:
+:appendix: t
+:END:
+#+name:Makefile
+#+header: :tangle Makefile
+#+header: :noweb tangle
+#+begin_src makefile
+  ### PROGRAM
+  PROG   = <<get-org-filename()>>
+  DIR    = <<get-org-lc-filename()>>
+  VERS   = <<get-file-version()>>
+  S3VERS = <<get-s3-version()>>
+
+  ### TOOLS
+  TOOLS = tools
+  CMPRPL = $(TOOLS)/cmprpl
+
+  ### TEXINFO
+  ORG   = $(PROG).org
+  TEXI  = $(PROG).texi
+  INFO  = $(PROG).info
+  PDF   = $(PROG).pdf
+  HTML  = $(DIR)/index.html
+
+  ### HTML DIR
+  OLDDIR= $(DIR)-old
+  INDEX = index.html
+
+  ### AWS
+  HOME = s3://pinecone-forest.com
+  AWS  = aws2
+  S3   = $(AWS) s3
+  SRC  = $(DIR)/
+
+  DST_OLD = $(HOME)/$(DIR)-$(S3VERS)
+  DST_NEW = $(HOME)/$(DIR)-$(VERS)
+  EXCL_INCL = --exclude "*" --include "*.html"
+  GRANTS = --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+  REGION = --region us-west-2
+  S3SYNC = $(S3) sync $(EXCL_INCL) $(SRC) $(DST_OLD) $(REGION) $(GRANTS)
+  S3MOVE = $(S3) mv --recursive $(DST_OLD) $(DST_NEW) $(REGION) $(GRANTS)
+
+  default: texi info html pdf
+
+  PHONY: default all texi info html pdf open-org open-texi open-html \
+	   open-pdf clean clean-dist help sync
+
+  show-version:
+	  @echo PROG $(PROG)
+	  @echo VERS $(VERS)
+	  @echo S3VERS $(S3VERS)
+	  @echo DIR $(DIR)
+	  @echo OLDDIR $(OLDDIR)
+	  @echo SRC $(SRC)
+	  @echo DST_OLD $(DST_OLD)
+	  @echo DST_NEW $(DST_NEW)
+
+  open-org: $(ORG)
+	  emacsclient $(ORG) &
+  $(ORG):
+	  @echo 'DISASTER HAS BEFALLEN YOU AS THERE IS NO $(ORG) FILE!!!'
+	  exit 1
+
+  texi: $(TEXI)
+  $(TEXI): $(ORG)
+	  emacs --batch --eval '\
+	  (progn \
+	    (find-file "$(ORG)") \
+	    (setq org-confirm-babel-evaluate nil) \
+	    (require '\''ox-texinfo) \
+	    (require '\''ob-shell) \
+	    (org-export-to-file '\''texinfo "$(TEXI)"))'
+
+  open-texi: texi
+	  emacsclient $(TEXI) &
+
+  info: $(INFO)
+  $(INFO): $(TEXI)
+	  makeinfo $(TEXI)
+
+  html: $(HTML)
+  $(HTML): $(TEXI)
+	  makeinfo --html $(TEXI)
+	  $(CMPRPL) $(DIR) $(OLDDIR)
+  open-html: html
+	  open $(HTML)
+
+  pdf: $(PDF)
+  $(PDF): $(TEXI)
+	  pdftexi2dvi --quiet --build=clean $(TEXI)
+  open-pdf: pdf
+	  open $(PDF)
+
+  sync: $(HTML)
+	  $(S3SYNC)
+	  [[ $(VERS) != $(S3VERS) ]] && $(S3MOVE) || :
+
+  clean:
+	  -rm *~
+
+  clean-dist: clean
+	  -rm -rf *.{texi*,info*,html*,pdf*} $(DIR) $(TOOLS)
+
+  help:
+	  @echo '"make default" makes the .texi file \
+	  the html files, and opens the index.html file'
+	  @echo
+
+	  @echo '"make all" makes the .texi, .info, .pdf, and html distribution'
+	  @echo '"make sync" syncs the html files in the AWS S3 bucket HOME; \
+	  You must have your AWS credentials installed in ~/.aws/credentials'
+	  @echo
+
+	  @echo '"make texi" makes the .texi file'
+	  @echo '"make info" makes the .info file'
+	  @echo '"make html" makes the html distribution in a subdirectory'
+	  @echo '"make pdf" makes the .pdf file'
+	  @echo
+
+	  @echo '"make open-org" opens the ORG program using emacsclient for editing'
+	  @echo '"make open-texi" opens the .texi file using emacsclient for review'
+	  @echo '"make open-html" opens the distribution index.html file \
+	  in the default web browser'
+	  @echo '"make open-pdf" opens the .pdf file'
+	  @echo
+
+	  @echo '"make clean" removes the .texi, .info, and backup files ("*~")'
+	  @echo '"make clean-dist" cleans, removes the html distribution, \
+	  and removes the build directory'
+
+#+end_src
+** Get Org Filename
+This program simply uses the name of the buffer to obtain the name of the
+filename to add to the Makefile.
+
+#+caption:Get Org Filename program
+#+name:get-org-filename
+#+begin_src emacs-lisp :eval yes
+(file-name-base)
+#+end_src
+
+** Get Org Lowercase Filename
+This program simply downcases the buffer filename to use as a directory name
+for the HTML output.
+
+#+caption:Get Org Lowercase Filename program
+#+name:get-org-lc-filename
+#+begin_src emacs-lisp :eval yes
+(downcase (file-name-base))
+#+end_src
+
+** Get File Version
+This program scans the current buffer for the version number and places it into
+the Makefile.
+
+#+caption:Get File Version program
+#+name:get-file-version
+#+begin_src emacs-lisp :eval yes
+  (save-excursion
+    (goto-char (point-min))
+    (re-search-forward "^#\\+macro:version Version \\(\\(?:[[:digit:]]+\\.?\\)\\{3\\}\\)")
+    (concat "v" (match-string-no-properties 1) "/"))
+#+end_src
+
+** Get S3 Version
+:PROPERTIES:
+:dependency: ">= bash v4"
+:END:
+This program obtains the version number of the code currently uploaded to the
+S3 bucket by obtaining a directly listing of top-level directories, which are
+in the form ~PRE <dir>-v#.#.#/~, and performs a regular expression search with
+a parenthesized match on the version numbers.  The program will exit with an
+error if there is no match, but will return the version number as a string if
+there is a match.
+
+Note that the regular expression matching requires at least Bash version 4 or
+above.
+
+#+caption:Get S3 Version
+#+name:get-s3-version
+#+header: :var dir=get-org-lc-filename()
+#+begin_src sh :eval yes
+  re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
+  verpre=$(aws2 s3 ls s3://pinecone-forest.com/) ### TODO
+  [[ $verpre =~ $re ]] && : || { printf "${RED} ERROR get-s3-version: no match${CLEAR}"; exit 1; }
+  ver=${BASH_REMATCH[1]}
+  echo "${ver}"
+#+end_src
+
+** Compare Replace
+
+#+begin_comment
+The following source code tangles all files during an export operation.  This
+is to make sure the ~cmprpl~ source code exists in the ~tools/~ directory
+before running the Makefile target =html=, as this directory is deleted upon a
+~make clean-dist~.  It also makes sure there is a Makefile on an initial
+export, although the Makefile is never thereafter deleted.  The following code
+is not exported.
+#+end_comment
+
+#+name:tangle-org-file
+#+header: :exports results :eval yes :results silent
+#+begin_src emacs-lisp
+(org-babel-tangle-file (buffer-file-name))
+#+end_src
+
+The ~cmprpl~ source code attempts to resolve the issue of identical exported
+code having different time stamps, thus defeating the benefit provided by the
+~aws2 s3 sync~ command uploading only changed files.
+
+This program makes sure that a generated HTML directory exists: $NEWDIR.  If it
+doesn’t, then it is in an improper state and the program stops with an error
+message.
+
+The program then checks if an old directory exists, $OLDDIR.  If one doesn’t,
+then one is created by copying the current new directory.  This provides a
+baseline for comparisons going forward.
+
+The program then loops through all of the files in the new directory and copies
+any that do not exist in the old directory.  Now both directories should be in
+sync.
+
+It is important to retain the $OLDDIR for as long as possible to reap the most
+benefits from the AWS S3 ~sync~ command.
+
+#+caption:Compare Replace program
+#+name:cmprpl
+#+header: :mkdirp t
+#+header: :shebang "#!/usr/bin/env bash"
+#+begin_src sh :tangle tools/cmprpl
+  [[ $# -eq 2 ]] || { echo "ERROR: Incorrect command line arguments"; exit 1; }
+  NEWDIR=$1
+  OLDDIR=$2
+
+  [[ -d $NEWDIR ]] || { echo "ERROR: $NEWDIR does not exist"; exit 1; }
+  [[ -d $OLDDIR ]] || { echo "CREATING: $OLDDIR does not exist"; cp -a $NEWDIR $OLDDIR; exit 0; }
+
+  for oldfile in $OLDDIR/*
+  do
+      newfile=$NEWDIR/$(basename $oldfile)
+      if [[ -e $newfile ]]
+      then
+	      if cmp -s $newfile $oldfile
+	      then
+	          printf "${GREEN}copying OLD to NEW${CLEAR}: "
+	          cp -vp $oldfile $newfile
+	      else
+	          printf "${MAGENTA}copying NEW to OLD${CLEAR}: "
+	          cp -vp $newfile $oldfile
+	      fi
+      else
+	      printf "${RED}removing OLD:${CLEAR} "
+	      rm -v $oldfile
+      fi
+  done
+
+  for newfile in $NEWDIR/*
+  do
+      oldfile=$OLDDIR/$(basename $newfile)
+      [[ -e $oldfile ]] || { printf "${BLUE}copying NEW to OLD${CLEAR}: "
+			     cp -vp $newfile $oldfile; }
+  done
+#+end_src
+
+
+* List of Programs
+:PROPERTIES:
+:appendix: t
+:END:
+#+texinfo:@listoffloats Listing
+
+* List of Examples
+:PROPERTIES:
+:appendix: t
+:END:
+#+texinfo:@listoffloats Example
+
+* Copying
+:PROPERTIES:
+:copying:  t
+:END:
+
+Copyright \copy 2020 by {{{author}}}
+
+* Concept Index
+:PROPERTIES:
+:unnumbered: t
+:index:    cp
+:END:
+
+* Program Index
+:PROPERTIES:
+:index:    pg
+:unnumbered: t
+:END:
+
+* Function Index
+:PROPERTIES:
+:index:    fn
+:unnumbered: t
+:END:
+
+* Variable Index
+:PROPERTIES:
+:index:    vr
+:unnumbered: t
+:END:
+
+
+* Footnotes
+
+
+* Export Configurations                                            :noexport:
+#+texinfo_filename:
+#+texinfo_class: info
+#+texinfo_header:
+#+texinfo_post_header:
+#+subtitle:
+#+subauthor:
+#+texinfo_dir_category:
+#+texinfo_dir_title:
+#+texinfo_dir_desc:
+#+texinfo_printed_title:
+
+
+* Local Variables                                                  :noexport:
+# Local Variables:
+# fill-column: 79
+# indent-tabs-mode: t
+# time-stamp-pattern: "8/^\\#\\+date:%:y-%02m-%02d %02H:%02M$"
+# eval: (electric-quote-local-mode t)
+# End:
