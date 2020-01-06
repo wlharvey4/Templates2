@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-06 09:09
+#+date:2020-01-06 10:16
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -203,7 +203,9 @@ above.
 #+caption:Get S3 Version
 #+name:get-s3-version
 #+header: :var dir=get-org-lc-filename()
+#+header: :var file_version=get-file-version()
 #+begin_src sh :eval yes
+  [[ ${file_version} = v0.0.0/ ]] && { echo "nil"; exit 0; }
   re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
   verpre=$(aws2 s3 ls s3://pinecone-forest.com/) ### TODO
   [[ $verpre =~ $re ]] && : || { printf "${RED} ERROR get-s3-version: no match${CLEAR}"; exit 1; }
@@ -301,7 +303,7 @@ benefits from the AWS S3 ~sync~ command.
       exit 1
   }
   read -N 1 -p "Create new directory \'$1\'?"
-  [[ $REPLY =~ [yY] ]] || { printf "${RED}abort${CLEAR}"; exit 0; }
+  [[ $REPLY =~ [yY] ]] && echo || { printf "${RED}abort${CLEAR}"; exit 0; }
 
   mkdir -v "$1"
   cp -v ~/Dev/Templates2/Org/Template.org "$1/$1.org"
@@ -313,9 +315,15 @@ benefits from the AWS S3 ~sync~ command.
   emacs --batch --eval \
     '(progn 
        (require '\''org)
+       (require '\''ob)
+       (setq org-confirm-babel-evaluate nil)
+       (require '\''ob-shell)
        (find-file '\"$1/$1.org\"')
-       (search-forward "Create Script")
-       (org-cut-subtree)(save-buffer))'
+       (search-forward "** Create Script")
+       (org-cut-subtree)
+       (search-backward "** Makefile")
+       (org-babel-tangle 4)
+       (save-buffer 0))'
 #+end_src
 
 * List of Programs
