@@ -1,9 +1,9 @@
 # -*- mode:org; -*-
 
 #+title:TITLE
-#+subtitle:SUBTITLE
+#+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-05 08:31
+#+date:2020-01-06 09:09
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -287,6 +287,37 @@ benefits from the AWS S3 ~sync~ command.
 #+end_src
 
 
+** Create Script
+
+#+caption:Create Script
+#+name:create-script
+#+header: :tangle ~/Dev/bin/org-template
+#+header: :shebang "#!/usr/bin/env bash"
+#+header: :noweb tangle
+#+begin_src sh
+  # $1 := Title
+  [[ ($# -eq 1) || ($# -eq 2) ]] || {
+      printf "${RED}ERROR: \'org-tempate <TITLE> [<AUTHOR>]\'${CLEAR}"
+      exit 1
+  }
+  read -N 1 -p "Create new directory \'$1\'?"
+  [[ $REPLY =~ [yY] ]] || { printf "${RED}abort${CLEAR}"; exit 0; }
+
+  mkdir -v "$1"
+  cp -v ~/Dev/Templates2/Org/Template.org "$1/$1.org"
+
+  sed -i '' -Ee '/^\#\+title:/ s/TITLE/'"$1"'/' "$1/$1.org"
+  [[ $# -eq 2 ]] && \
+      sed -i '' -Ee '/^\#\+author:/ s/AUTHOR/'"$2"'/' "$1/$1.org"
+
+  emacs --batch --eval \
+    '(progn 
+       (require '\''org)
+       (find-file '\"$1/$1.org\"')
+       (search-forward "Create Script")
+       (org-cut-subtree)(save-buffer))'
+#+end_src
+
 * List of Programs
 :PROPERTIES:
 :appendix: t
