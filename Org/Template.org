@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-10 07:53
+#+date:2020-01-10 09:16
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -217,13 +217,21 @@ above.
 #+header: :var file_version=get-file-version()
 #+header: :results output
 #+header: :eval yes
+#+header: :shebang "#! /usr/bin/env bash"
 #+begin_src sh
-  [[ ${file_version} = v0.0.0/ ]] && { echo "nil"; exit 0; } || :
-  re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
-  verpre=$(aws2 s3 ls s3://${AWS_BUCKET}/) ### TODO
-  [[ $verpre =~ $re ]] && : || { echo "nil"; exit 0; }
-  ver=${BASH_REMATCH[1]}
-  echo "${ver}"
+  if [[ ${file_version} = "v0.0.0/" ]]
+  then
+      echo -n "nil"
+  else
+      re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
+      verpre=$(aws2 s3 ls s3://${AWS_BUCKET}/) ### TODO
+      if [[ $verpre =~ $re ]]
+      then
+		echo -n ${BASH_REMATCH[1]}
+      else
+		echo -n "nil"
+      fi
+  fi
 #+end_src
 
 ** Compare Replace
@@ -312,16 +320,19 @@ benefits from the AWS S3 ~sync~ command.
 #+begin_src sh
     # $1 := Title
     [[ ($# -eq 1) || ($# -eq 2) ]] || {
-	printf "${RED}ERROR: \'org-tempate <TITLE> [<AUTHOR>]\'${CLEAR}"
-	exit 1
+	  printf "${RED}ERROR: ${YELLOW}\'org-template ${RED}<TITLE>${YELLOW} [<AUTHOR>]\'${CLEAR}"
+	  exit 1
     }
-    printf "${YELLOW}"
-    read -N 1 -p "Create new directory '$1'?"
-    printf "${CLEAR}\n"
-    [[ $REPLY =~ [yY] ]] && echo || { printf "${RED}abort${CLEAR}"; exit 0; }
+    printf "${PURPLE}"
+    read -N 1 -p "Create new directory '$1' (y/n) ?"
+    printf "${CLEAR}\n\n"
+    [[ $REPLY =~ [yY] ]] && printf "${GREEN}" || {
+	  printf "${RED}abort${CLEAR}"
+	  exit 0
+	}
 
-    printf "${GREEN}"
     mkdir -v "$1"
+    printf "copy "
     cp -v ~/Dev/Templates2/Org/Template.org "$1/$1.org"
     printf "${CLEAR}\n"
 
