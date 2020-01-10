@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-10 06:41
+#+date:2020-01-10 07:03
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -195,10 +195,10 @@ the Makefile.
 :dependency: ">= bash v4"
 :END:
 This program obtains the version number of the code currently uploaded to the
-S3 bucket by obtaining a directly listing of top-level directories, which are
+S3 bucket by obtaining a directory listing of top-level directories, which are
 in the form ~PRE <dir>-v#.#.#/~, and performs a regular expression search with
 a parenthesized match on the version numbers.  The program will exit with an
-error if there is no match, but will return the version number as a string if
+nil if there is no match, but will return the version number as a string if
 there is a match.
 
 Note that the regular expression matching requires at least Bash version 4 or
@@ -208,11 +208,13 @@ above.
 #+name:get-s3-version
 #+header: :var dir=get-org-lc-filename()
 #+header: :var file_version=get-file-version()
-#+begin_src sh :eval yes
-  [[ ${file_version} = v0.0.0/ ]] && { echo "nil"; exit 0; }
+#+header: :results output :eval no-export
+#+begin_src sh
+  [[ -z ${AWSS_BUCKET} ]] && { printf "${RED}ERROR: ${CYAN}\$AWS_BUCKET must be set${CLEAR}"; exit 0; }
+  [[ ${file_version} = v0.0.0/ ]] && { echo "nil"; exit 0; } || :
   re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
-  verpre=$(aws2 s3 ls s3://pinecone-forest.com/) ### TODO
-  [[ $verpre =~ $re ]] && : || { printf "${RED} ERROR get-s3-version: no match${CLEAR}"; exit 1; }
+  verpre=$(aws2 s3 ls s3://${AWS_BUCKET}/) ### TODO
+  [[ $verpre =~ $re ]] && : || { echo "nil"; exit 0; }
   ver=${BASH_REMATCH[1]}
   echo "${ver}"
 #+end_src
