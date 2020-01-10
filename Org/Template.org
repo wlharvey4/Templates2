@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-10 07:03
+#+date:2020-01-10 07:53
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -64,10 +64,12 @@
   S3SYNC = $(S3) sync $(EXCL_INCL) $(SRC) $(DST_OLD) $(REGION) $(GRANTS)
   S3MOVE = $(S3) mv --recursive $(DST_OLD) $(DST_NEW) $(REGION) $(GRANTS)
 
-  default: texi info html pdf
+  default: check texi info html pdf
 
-  PHONY: default all texi info html pdf open-org open-texi open-html \
-	   open-pdf clean clean-dist help sync
+  PHONY:  check default all \
+	  texi info html pdf \
+	  open-org open-texi open-html open-pdf \
+	  clean clean-dist help sync
 
   show-version:
 	  @echo EMACSLOADPATH $(EMACSLOADPATH)
@@ -80,6 +82,11 @@
 	  @echo SRC $(SRC)
 	  @echo DST_OLD $(DST_OLD)
 	  @echo DST_NEW $(DST_NEW)
+
+  check:
+	  @[[ -z $${AWS_BUCKET} ]] && \
+	     { printf "$${RED}\$$AWS_BUCKET $${CYAN}must be set.$${CLEAR}\n"; exit 1; } || \
+	     printf "$${GREEN}\$${AWS_BUCKET}: $${CYAN}$${AWS_BUCKET}$${CLEAR}\n";
 
   open-org: $(ORG)
 	  emacsclient $(ORG) &
@@ -208,9 +215,9 @@ above.
 #+name:get-s3-version
 #+header: :var dir=get-org-lc-filename()
 #+header: :var file_version=get-file-version()
-#+header: :results output :eval no-export
+#+header: :results output
+#+header: :eval yes
 #+begin_src sh
-  [[ -z ${AWSS_BUCKET} ]] && { printf "${RED}ERROR: ${CYAN}\$AWS_BUCKET must be set${CLEAR}"; exit 0; }
   [[ ${file_version} = v0.0.0/ ]] && { echo "nil"; exit 0; } || :
   re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
   verpre=$(aws2 s3 ls s3://${AWS_BUCKET}/) ### TODO
@@ -303,33 +310,40 @@ benefits from the AWS S3 ~sync~ command.
 #+header: :shebang "#!/usr/bin/env bash"
 #+header: :noweb tangle
 #+begin_src sh
-  # $1 := Title
-  [[ ($# -eq 1) || ($# -eq 2) ]] || {
-      printf "${RED}ERROR: \'org-tempate <TITLE> [<AUTHOR>]\'${CLEAR}"
-      exit 1
-  }
-  read -N 1 -p "Create new directory \'$1\'?"
-  [[ $REPLY =~ [yY] ]] && echo || { printf "${RED}abort${CLEAR}"; exit 0; }
+    # $1 := Title
+    [[ ($# -eq 1) || ($# -eq 2) ]] || {
+	printf "${RED}ERROR: \'org-tempate <TITLE> [<AUTHOR>]\'${CLEAR}"
+	exit 1
+    }
+    printf "${YELLOW}"
+    read -N 1 -p "Create new directory '$1'?"
+    printf "${CLEAR}\n"
+    [[ $REPLY =~ [yY] ]] && echo || { printf "${RED}abort${CLEAR}"; exit 0; }
 
-  mkdir -v "$1"
-  cp -v ~/Dev/Templates2/Org/Template.org "$1/$1.org"
+    printf "${GREEN}"
+    mkdir -v "$1"
+    cp -v ~/Dev/Templates2/Org/Template.org "$1/$1.org"
+    printf "${CLEAR}\n"
 
-  sed -i '' -Ee '/^\#\+title:/ s/TITLE/'"$1"'/' "$1/$1.org"
-  [[ $# -eq 2 ]] && \
-      sed -i '' -Ee '/^\#\+author:/ s/AUTHOR/'"$2"'/' "$1/$1.org"
+    sed -i '' -Ee '/^\#\+title:/ s/TITLE/'"$1"'/' "$1/$1.org"
+    [[ $# -eq 2 ]] && \
+	sed -i '' -Ee '/^\#\+author:/ s/AUTHOR/'"$2"'/' "$1/$1.org"
 
-  emacs --batch --eval \
-    '(progn 
-       (require '\''org)
-       (require '\''ob)
-       (setq org-confirm-babel-evaluate nil)
-       (require '\''ob-shell)
-       (find-file '\"$1/$1.org\"')
-       (search-forward "** Create Script")
-       (org-cut-subtree)
-       (search-backward "** Makefile")
-       (org-babel-tangle 4)
-       (save-buffer 0))'
+    printf "${CYAN}"
+    emacs --batch --eval \
+      '(progn 
+	 (require (quote org))
+	 (require (quote ob))
+	 (require (quote ob-shell))
+	 (setq org-confirm-babel-evaluate nil)
+	 (find-file '\"$1/$1.org\"')
+	 (search-forward "** Create Script")
+	 (org-cut-subtree)
+	 (search-backward "** Makefile")
+	 (org-babel-tangle 4)
+	 (save-buffer 0))'
+
+  printf "${CLEAR}\n"
 #+end_src
 
 * List of Programs
