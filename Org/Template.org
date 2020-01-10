@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-06 10:16
+#+date:2020-01-10 06:41
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -51,7 +51,7 @@
   INDEX = index.html
 
   ### AWS
-  HOME = s3://pinecone-forest.com
+  HOME = s3://$(AWS_BUCKET)
   AWS  = aws2
   S3   = $(AWS) s3
   SRC  = $(DIR)/
@@ -70,6 +70,8 @@
 	   open-pdf clean clean-dist help sync
 
   show-version:
+	  @echo EMACSLOADPATH $(EMACSLOADPATH)
+	  @echo AWS_BUCKET $(AWS_BUCKET)
 	  @echo PROG $(PROG)
 	  @echo VERS $(VERS)
 	  @echo S3VERS $(S3VERS)
@@ -89,11 +91,13 @@
   $(TEXI): $(ORG)
 	  emacs --batch --eval '\
 	  (progn \
-	    (find-file "$(ORG)") \
+	    (require (quote org)) \
+	    (require (quote ob)) \
+	    (require (quote ox-texinfo)) \
+	    (require (quote ob-shell)) \
 	    (setq org-confirm-babel-evaluate nil) \
-	    (require '\''ox-texinfo) \
-	    (require '\''ob-shell) \
-	    (org-export-to-file '\''texinfo "$(TEXI)"))'
+	    (find-file "$(ORG)") \
+	    (org-export-to-file (quote texinfo) "$(TEXI)"))'
 
   open-texi: texi
 	  emacsclient $(TEXI) &
