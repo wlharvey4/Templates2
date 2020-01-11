@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-11 08:33
+#+date:2020-01-11 09:16
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -331,6 +331,7 @@ the most benefits from the AWS S3 ~sync~ command.
 #+end_src
 
 
+* Build Scripts
 ** Create Script
 This code is a script file to create a new project from this template.  It
 takes one required, and one optional command line argument.  The required
@@ -384,6 +385,10 @@ command line arguments.  Finally, it deletes this script from the new Org file.
 
   printf "${CLEAR}\n"
 #+end_src
+** TODO Update Script
+This code is a script file to update the Build tools in a current project with
+the updated Build tools from this template.  It copies the outline structure of
+the Build Tools from this template file into the current project’s Org file.
 
 * List of Programs
 :PROPERTIES:
