@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-10 09:16
+#+date:2020-01-11 08:33
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -21,10 +21,12 @@
 :PROPERTIES:
 :appendix: t
 :END:
+
 ** Makefile
 :PROPERTIES:
 :appendix: t
 :END:
+
 #+name:Makefile
 #+header: :tangle Makefile
 #+header: :noweb tangle
@@ -36,7 +38,7 @@
   S3VERS = <<get-s3-version()>>
 
   ### TOOLS
-  TOOLS = tools
+  TOOLS  = tools
   CMPRPL = $(TOOLS)/cmprpl
 
   ### TEXINFO
@@ -47,17 +49,17 @@
   HTML  = $(DIR)/index.html
 
   ### HTML DIR
-  OLDDIR= $(DIR)-old
+  DIROLD= $(DIR)-old
   INDEX = index.html
 
   ### AWS
-  HOME = s3://$(AWS_BUCKET)
-  AWS  = aws2
-  S3   = $(AWS) s3
-  SRC  = $(DIR)/
+  BUCKET = s3://$(AWS_S3_BUCKET)
+  AWS    = aws2
+  S3     = $(AWS) s3
+  SRC    = $(DIR)/
 
-  DST_OLD = $(HOME)/$(DIR)-$(S3VERS)
-  DST_NEW = $(HOME)/$(DIR)-$(VERS)
+  DST_OLD = $(BUCKET)/$(DIR)-$(S3VERS)
+  DST_NEW = $(BUCKET)/$(DIR)-$(VERS)
   EXCL_INCL = --exclude "*" --include "*.html"
   GRANTS = --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
   REGION = --region us-west-2
@@ -73,20 +75,20 @@
 
   show-version:
 	  @echo EMACSLOADPATH $(EMACSLOADPATH)
-	  @echo AWS_BUCKET $(AWS_BUCKET)
+	  @echo AWS_S3_BUCKET $(AWS_S3_BUCKET)
 	  @echo PROG $(PROG)
 	  @echo VERS $(VERS)
 	  @echo S3VERS $(S3VERS)
 	  @echo DIR $(DIR)
-	  @echo OLDDIR $(OLDDIR)
+	  @echo DIROLD $(DIROLD)
 	  @echo SRC $(SRC)
 	  @echo DST_OLD $(DST_OLD)
 	  @echo DST_NEW $(DST_NEW)
 
   check:
-	  @[[ -z $${AWS_BUCKET} ]] && \
-	     { printf "$${RED}\$$AWS_BUCKET $${CYAN}must be set.$${CLEAR}\n"; exit 1; } || \
-	     printf "$${GREEN}\$${AWS_BUCKET}: $${CYAN}$${AWS_BUCKET}$${CLEAR}\n";
+	  @[[ -z $${AWS_S3_BUCKET} ]] && \
+	     { printf "$${RED}\$$AWS_S3_BUCKET $${CYAN}must be set.$${CLEAR}\n"; exit 1; } || \
+	     printf "$${GREEN}\$${AWS_S3_BUCKET}: $${CYAN}$${AWS_S3_BUCKET}$${CLEAR}\n";
 
   open-org: $(ORG)
 	  emacsclient $(ORG) &
@@ -116,7 +118,7 @@
   html: $(HTML)
   $(HTML): $(TEXI)
 	  makeinfo --html $(TEXI)
-	  $(CMPRPL) $(DIR) $(OLDDIR)
+	  $(CMPRPL) $(DIR) $(DIROLD)
   open-html: html
 	  open $(HTML)
 
@@ -137,12 +139,12 @@
 	  -rm -rf *.{texi*,info*,html*,pdf*} $(DIR) $(TOOLS)
 
   help:
-	  @echo '"make default" makes the .texi file \
-	  the html files, and opens the index.html file'
+	  @echo '"make default" makes the .texi file, the .info file, \
+	  the html files, and the .pdf file.'
 	  @echo
 
-	  @echo '"make all" makes the .texi, .info, .pdf, and html distribution'
-	  @echo '"make sync" syncs the html files in the AWS S3 bucket HOME; \
+	  @echo '"make sync" syncs the html files in the AWS S3 bucket BUCKET; \
+	  you must have your AWS S3 bucket name in the env var AWS_S3_BUCKET; \
 	  You must have your AWS credentials installed in ~/.aws/credentials'
 	  @echo
 
@@ -164,6 +166,16 @@
 	  and removes the build directory'
 
 #+end_src
+
+*** TODO Next
+1. The CloudFront configuration needs to be updated recognize the new version
+   directory that is created as part of the ~sync~ operation.
+
+2. Update the GitHub HOME website link for each new sync operation.
+
+3. Store on GitHub a version of each other format upon a sync operation (i.e.,
+   the INFO and PDF versions)
+
 ** Get Org Filename
 This program simply uses the name of the buffer to obtain the name of the
 filename to add to the Makefile.
@@ -204,9 +216,9 @@ the Makefile.
 This program obtains the version number of the code currently uploaded to the
 S3 bucket by obtaining a directory listing of top-level directories, which are
 in the form ~PRE <dir>-v#.#.#/~, and performs a regular expression search with
-a parenthesized match on the version numbers.  The program will exit with an
-nil if there is no match, but will return the version number as a string if
-there is a match.
+a parenthesized match on the version numbers.  The program will exit with 'nil'
+if there is no match, but will return the version number as a string if there
+is a match.
 
 Note that the regular expression matching requires at least Bash version 4 or
 above.
@@ -222,9 +234,14 @@ above.
   if [[ ${file_version} = "v0.0.0/" ]]
   then
       echo -n "nil"
+
   else
       re=${dir}'-(v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)'
-      verpre=$(aws2 s3 ls s3://${AWS_BUCKET}/) ### TODO
+
+      # obtain a list of directories in the aws s2 bucket
+      verpre=$(aws2 s3 ls s3://${AWS_S3_BUCKET}/)
+
+      # check for a match; if one, return the version number; else return 'nil'
       if [[ $verpre =~ $re ]]
       then
 		echo -n ${BASH_REMATCH[1]}
@@ -239,10 +256,8 @@ above.
 #+begin_comment
 The following source code tangles all files during an export operation.  This
 is to make sure the ~cmprpl~ source code exists in the ~tools/~ directory
-before running the Makefile target =html=, as this directory is deleted upon a
-~make clean-dist~.  It also makes sure there is a Makefile on an initial
-export, although the Makefile is never thereafter deleted.  The following code
-is not exported.
+before running the Makefile target =html=.  It also makes sure there is a
+Makefile on an initial export.  The following code is not exported.
 #+end_comment
 
 #+name:tangle-org-file
@@ -255,20 +270,26 @@ The ~cmprpl~ source code attempts to resolve the issue of identical exported
 code having different time stamps, thus defeating the benefit provided by the
 ~aws2 s3 sync~ command uploading only changed files.
 
-This program makes sure that a generated HTML directory exists: $NEWDIR.  If it
+This program makes sure that a generated HTML directory exists: $DIRNEW.  If it
 doesn’t, then it is in an improper state and the program stops with an error
 message.
 
-The program then checks if an old directory exists, $OLDDIR.  If one doesn’t,
+The program then checks if an old directory exists, $DIROLD.  If one doesn’t,
 then one is created by copying the current new directory.  This provides a
-baseline for comparisons going forward.
+baseline for comparisons going forward.  The program exits at that point.
+
+Given that $DIROLD exists, the program then loops through all files in $DIROLD
+and compares them to the files in $DIRNEW.  If the files are identical, the
+$DIROLD file replaces the $DIRNEW file while retaining the old time stamp.  If
+a file is different, then the $DIRNEW file replaces the $DIROLD file, thus
+giving it updated content and an updated time stamp.
 
 The program then loops through all of the files in the new directory and copies
 any that do not exist in the old directory.  Now both directories should be in
 sync.
 
-It is important to retain the $OLDDIR for as long as possible to reap the most
-benefits from the AWS S3 ~sync~ command.
+It is important to retain the $DIROLD directory for as long as possible to reap
+the most benefits from the AWS S3 ~sync~ command.
 
 #+caption:Compare Replace program
 #+name:cmprpl
@@ -276,15 +297,15 @@ benefits from the AWS S3 ~sync~ command.
 #+header: :shebang "#!/usr/bin/env bash"
 #+begin_src sh :tangle tools/cmprpl
   [[ $# -eq 2 ]] || { echo "ERROR: Incorrect command line arguments"; exit 1; }
-  NEWDIR=$1
-  OLDDIR=$2
+  DIRNEW=$1
+  DIROLD=$2
 
-  [[ -d $NEWDIR ]] || { echo "ERROR: $NEWDIR does not exist"; exit 1; }
-  [[ -d $OLDDIR ]] || { echo "CREATING: $OLDDIR does not exist"; cp -a $NEWDIR $OLDDIR; exit 0; }
+  [[ -d $DIRNEW ]] || { echo "ERROR: $DIRNEW does not exist"; exit 1; }
+  [[ -d $DIROLD ]] || { echo "CREATING: $DIROLD does not exist"; cp -a $DIRNEW $DIROLD; exit 0; }
 
-  for oldfile in $OLDDIR/*
+  for oldfile in $DIROLD/*
   do
-      newfile=$NEWDIR/$(basename $oldfile)
+      newfile=$DIRNEW/$(basename $oldfile)
       if [[ -e $newfile ]]
       then
 	      if cmp -s $newfile $oldfile
@@ -301,9 +322,9 @@ benefits from the AWS S3 ~sync~ command.
       fi
   done
 
-  for newfile in $NEWDIR/*
+  for newfile in $DIRNEW/*
   do
-      oldfile=$OLDDIR/$(basename $newfile)
+      oldfile=$DIROLD/$(basename $newfile)
       [[ -e $oldfile ]] || { printf "${BLUE}copying NEW to OLD${CLEAR}: "
 			     cp -vp $newfile $oldfile; }
   done
@@ -311,6 +332,13 @@ benefits from the AWS S3 ~sync~ command.
 
 
 ** Create Script
+This code is a script file to create a new project from this template.  It
+takes one required, and one optional command line argument.  The required
+argument is the name of the project.  The optional is the name of the author.
+It creates a new directory in the current working directory using the first
+argument, then copies this template into it as a new Org file with the name of
+the argument.  It then updates the title, and optionally the author, using the
+command line arguments.  Finally, it deletes this script from the new Org file.
 
 #+caption:Create Script
 #+name:create-script
