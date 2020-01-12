@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-11 09:16
+#+date:2020-01-11 23:15
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -26,6 +26,13 @@
 :PROPERTIES:
 :appendix: t
 :END:
+
+# curl -i 
+#      -H "authorization: token $token" 
+#      -H "content-type: application/json" 
+#      -X PATCH 
+#      -d '{"homepage":"https://pinecone-forest.com/aws-guide-v0.0.56"}'
+#      https://api.github.com/repos/wlharvey4/AWS-Guide
 
 #+name:Makefile
 #+header: :tangle Makefile
