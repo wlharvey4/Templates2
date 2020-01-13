@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-11 23:15
+#+date:2020-01-12 23:17
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -396,6 +396,28 @@ command line arguments.  Finally, it deletes this script from the new Org file.
 This code is a script file to update the Build tools in a current project with
 the updated Build tools from this template.  It copies the outline structure of
 the Build Tools from this template file into the current project’s Org file.
+
+#+name:update-build-tools
+#+begin_src emacs-lisp
+  (defun update-build-tools (of-filenm)
+      "Update the Build Tools of the argument file, which should be
+  an Org file with a current Build Tools subtree."
+      (interactive "ffile: ")
+    (require (quote org))
+    (save-excursion 
+      (find-file "~/Dev/Templates2/Org/Template.org")
+      (goto-char (point-min))
+      (search-forward "* Build Tools")
+      (org-beginning-of-line)
+      (org-copy-subtree)
+      (find-file of-filenm)
+      (goto-char (point-min))
+      (search-forward "* Build Tools")
+      (org-beginning-of-line)
+      (org-yank)
+      (org-cut-subtree)
+      (save-buffer)))
+#+end_src
 
 * List of Programs
 :PROPERTIES:
