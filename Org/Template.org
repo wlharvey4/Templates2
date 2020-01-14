@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-13 22:21
+#+date:2020-01-14 00:08
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -156,7 +156,7 @@
 	       -H "Content-Type: application/json" \
 	       -X PATCH \
 	       -d '{"homepage":"https://$(AWS_S3_BUCKET)/$(DIR)-$(VERS)"}' \
-	       https://api.github.com/repos/wlharvey4/AWS-Guide
+	       https://api.github.com/repos/$(USER)/$(PROG)
 
   update: $(ORG)
 	  emacs -Q --batch --eval \
