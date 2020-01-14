@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-13 19:38
+#+date:2020-01-13 20:34
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -45,6 +45,7 @@
   DIR    = <<get-org-lc-filename()>>
   VERS   = <<get-file-version()>>
   S3VERS = <<get-s3-version()>>
+  USER   = <<get-github-user-info()>>
 
   ### TOOLS
   TOOLS  = tools
@@ -82,22 +83,26 @@
 	  open-org open-texi open-html open-pdf \
 	  clean clean-dist help sync update
 
-  show-version:
-	  @echo EMACSLOADPATH $(EMACSLOADPATH)
-	  @echo AWS_S3_BUCKET $(AWS_S3_BUCKET)
-	  @echo PROG $(PROG)
-	  @echo VERS $(VERS)
-	  @echo S3VERS $(S3VERS)
-	  @echo DIR $(DIR)
-	  @echo DIROLD $(DIROLD)
-	  @echo SRC $(SRC)
-	  @echo DST_OLD $(DST_OLD)
-	  @echo DST_NEW $(DST_NEW)
+  show-versions:
+	  @echo EMACSLOADPATH:	$(EMACSLOADPATH)
+	  @echo AWS_S3_BUCKET:	$(AWS_S3_BUCKET)
+	  @echo GITHUB_TOKEN:	is set
+	  @echo PROG:		$(PROG)
+	  @echo VERS:		$(VERS)
+	  @echo S3VERS:		$(S3VERS)
+	  @echo DIR:		$(DIR)
+	  @echo DIROLD:		$(DIROLD)
+	  @echo SRC:		$(SRC)
+	  @echo DST_OLD:	$(DST_OLD)
+	  @echo DST_NEW:	$(DST_NEW)
 
   check:
-	  @[[ -z $${AWS_S3_BUCKET} ]] && \
+	  [[ -z $${AWS_S3_BUCKET} ]] && \
 	     { printf "$${RED}\$$AWS_S3_BUCKET $${CYAN}must be set.$${CLEAR}\n"; exit 1; } || \
 	     printf "$${GREEN}\$${AWS_S3_BUCKET}: $${CYAN}$${AWS_S3_BUCKET}$${CLEAR}\n";
+	  [[ -z $${GITHUB_TOKEN} ]] && \
+	     { printf "$${RED}\$$GITHUB_TOKEN $${CYAN}must be set.$${CLEAR}\n"; exit 1; } || \
+	     printf "$${GREEN}\$${GITHUB_TOKEN}: set\n";
 
   open-org: $(ORG)
 	  emacsclient $(ORG) &
@@ -141,9 +146,20 @@
 	  $(S3SYNC)
 	  [[ $(VERS) != $(S3VERS) ]] && $(S3MOVE) || :
 
+  homepage: $(ORG)
+	  curl -i \
+	       -H "Authorization: token $(TOKEN)" \
+	       -H "Content-Type: application/json" \
+	       -X PATCH \
+	       -d '{"homepage":"https://$(AWS_S3_BUCKET)/$(S3VERS)"}' \
+	       https://api.github.com/repos/wlharvey4/AWS-Guide
+
   update: $(ORG)
 	  emacs -Q --batch --eval \
 	  '(progn \
+	     (require (quote org)) \
+	     (require (quote ob)) \
+	     (require (quote ob-shell)) \
 	     (find-file "$(TEMPLATE)") \
 	     (goto-char (point-min)) \
 	     (search-forward "* Build Tools") \
@@ -157,7 +173,9 @@
 	     (org-yank) \
 	     (org-cut-subtree) \
 	     (save-buffer) \
-	     (kill-buffer))'
+	     (kill-buffer) \
+	     (setq org-confirm-babel-evaluate nil) \
+	     (org-babel-tangle-file "$(ORG)"))'
 
   clean:
 	  -rm *~
