@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-13 20:34
+#+date:2020-01-13 21:16
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -294,6 +294,20 @@ above.
 		echo -n "nil"
       fi
   fi
+#+end_src
+
+** Get GitHub User Info
+This code calls the GitHub API from ~curl~ using the token stored in the env
+var =GITHUB_TOKEN= to obtain the GitHub user’s information.  The user’s
+information is returned as a JSON string.  Ths code returns one of the values
+based on a given key.  The default key used is =html_url=, but you can ask for
+any valid key by supplying an argument in the invocation, such as:
+: get-github-user-info(login)
+
+#+name:get-github-user-info
+#+header: :var key="html_url"
+#+begin_src sh :eval yes :results output
+  node -pe 'JSON.parse(process.argv[1]).'$key "$(curl -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/user)"
 #+end_src
 
 ** Compare Replace
