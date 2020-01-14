@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-14 00:08
+#+date:2020-01-14 00:10
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -41,7 +41,7 @@
   TEMPLATE = $(ORG_TEMPLATE)
 
   ### PROGRAM
-  PROG   = <<get-org-filename()>>
+  REPO   = <<get-org-filename()>>
   DIR    = <<get-org-lc-filename()>>
   VERS   = <<get-file-version()>>
   S3VERS = <<get-s3-version()>>
@@ -52,10 +52,10 @@
   CMPRPL = $(TOOLS)/cmprpl
 
   ### TEXINFO
-  ORG   = $(PROG).org
-  TEXI  = $(PROG).texi
-  INFO  = $(PROG).info
-  PDF   = $(PROG).pdf
+  ORG   = $(REPO).org
+  TEXI  = $(REPO).texi
+  INFO  = $(REPO).info
+  PDF   = $(REPO).pdf
   HTML  = $(DIR)/index.html
 
   ### HTML DIR
@@ -91,7 +91,7 @@
 	  @echo AWS_S3_BUCKET:	$(AWS_S3_BUCKET)
 	  @echo GITHUB_TOKEN:	is set
 	  @echo USER:		$(USER)
-	  @echo PROG:		$(PROG)
+	  @echo REPO:		$(REPO)
 	  @echo VERS:		$(VERS)
 	  @echo S3VERS:		$(S3VERS)
 	  @echo DIR:		$(DIR)
@@ -156,7 +156,7 @@
 	       -H "Content-Type: application/json" \
 	       -X PATCH \
 	       -d '{"homepage":"https://$(AWS_S3_BUCKET)/$(DIR)-$(VERS)"}' \
-	       https://api.github.com/repos/$(USER)/$(PROG)
+	       https://api.github.com/repos/$(USER)/$(REPO)
 
   update: $(ORG)
 	  emacs -Q --batch --eval \
