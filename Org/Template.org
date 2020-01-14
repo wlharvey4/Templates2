@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-13 21:16
+#+date:2020-01-13 21:34
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -45,7 +45,7 @@
   DIR    = <<get-org-lc-filename()>>
   VERS   = <<get-file-version()>>
   S3VERS = <<get-s3-version()>>
-  USER   = <<get-github-user-info()>>
+  USER   = <<get-github-user-info('login')>>
 
   ### TOOLS
   TOOLS  = tools
@@ -59,7 +59,7 @@
   HTML  = $(DIR)/index.html
 
   ### HTML DIR
-  DIROLD= $(DIR)-old
+  DIR_OLD= $(DIR)-old
   INDEX = index.html
 
   ### AWS
@@ -71,27 +71,28 @@
   DST_OLD = $(BUCKET)/$(DIR)-$(S3VERS)
   DST_NEW = $(BUCKET)/$(DIR)-$(VERS)
   EXCL_INCL = --exclude "*" --include "*.html"
-  GRANTS = --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-  REGION = --region us-west-2
-  S3SYNC = $(S3) sync $(EXCL_INCL) $(SRC) $(DST_OLD) $(REGION) $(GRANTS)
-  S3MOVE = $(S3) mv --recursive $(DST_OLD) $(DST_NEW) $(REGION) $(GRANTS)
+  GRANTS  = --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+  REGION  = --region us-west-2
+  S3SYNC  = $(S3) sync $(EXCL_INCL) $(SRC) $(DST_OLD) $(REGION) $(GRANTS)
+  S3MOVE  = $(S3) mv --recursive $(DST_OLD) $(DST_NEW) $(REGION) $(GRANTS)
 
   default: check texi info html pdf
 
   PHONY: check default all \
 	  texi info html pdf \
 	  open-org open-texi open-html open-pdf \
-	  clean clean-dist help sync update
+	  clean clean-dist help sync update values
 
-  show-versions:
+  values:
 	  @echo EMACSLOADPATH:	$(EMACSLOADPATH)
 	  @echo AWS_S3_BUCKET:	$(AWS_S3_BUCKET)
 	  @echo GITHUB_TOKEN:	is set
+	  @echo USER:		$(USER)
 	  @echo PROG:		$(PROG)
 	  @echo VERS:		$(VERS)
 	  @echo S3VERS:		$(S3VERS)
 	  @echo DIR:		$(DIR)
-	  @echo DIROLD:		$(DIROLD)
+	  @echo DIR_OLD:		$(DIR_OLD)
 	  @echo SRC:		$(SRC)
 	  @echo DST_OLD:	$(DST_OLD)
 	  @echo DST_NEW:	$(DST_NEW)
@@ -132,7 +133,7 @@
   html: $(HTML)
   $(HTML): $(TEXI)
 	  makeinfo --html $(TEXI)
-	  $(CMPRPL) $(DIR) $(DIROLD)
+	  $(CMPRPL) $(DIR) $(DIR_OLD)
   open-html: html
 	  open $(HTML)
 
@@ -289,7 +290,7 @@ above.
       # check for a match; if one, return the version number; else return 'nil'
       if [[ $verpre =~ $re ]]
       then
-		echo -n ${BASH_REMATCH[1]}
+		echo -n ${BASH_REMATCH[1]}/
       else
 		echo -n "nil"
       fi
@@ -306,7 +307,7 @@ any valid key by supplying an argument in the invocation, such as:
 
 #+name:get-github-user-info
 #+header: :var key="html_url"
-#+begin_src sh :eval yes :results output
+#+begin_src sh :eval yes :results value
   node -pe 'JSON.parse(process.argv[1]).'$key "$(curl -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/user)"
 #+end_src
 
@@ -329,25 +330,25 @@ The ~cmprpl~ source code attempts to resolve the issue of identical exported
 code having different time stamps, thus defeating the benefit provided by the
 ~aws2 s3 sync~ command uploading only changed files.
 
-This program makes sure that a generated HTML directory exists: $DIRNEW.  If it
+This program makes sure that a generated HTML directory exists: $DIR_NEW.  If it
 doesn’t, then it is in an improper state and the program stops with an error
 message.
 
-The program then checks if an old directory exists, $DIROLD.  If one doesn’t,
+The program then checks if an old directory exists, $DIR_OLD.  If one doesn’t,
 then one is created by copying the current new directory.  This provides a
 baseline for comparisons going forward.  The program exits at that point.
 
-Given that $DIROLD exists, the program then loops through all files in $DIROLD
-and compares them to the files in $DIRNEW.  If the files are identical, the
-$DIROLD file replaces the $DIRNEW file while retaining the old time stamp.  If
-a file is different, then the $DIRNEW file replaces the $DIROLD file, thus
+Given that $DIR_OLD exists, the program then loops through all files in $DIR_OLD
+and compares them to the files in $DIR_NEW.  If the files are identical, the
+$DIR_OLD file replaces the $DIR_NEW file while retaining the old time stamp.  If
+a file is different, then the $DIR_NEW file replaces the $DIR_OLD file, thus
 giving it updated content and an updated time stamp.
 
 The program then loops through all of the files in the new directory and copies
 any that do not exist in the old directory.  Now both directories should be in
 sync.
 
-It is important to retain the $DIROLD directory for as long as possible to reap
+It is important to retain the $DIR_OLD directory for as long as possible to reap
 the most benefits from the AWS S3 ~sync~ command.
 
 #+caption:Compare Replace program
@@ -356,15 +357,15 @@ the most benefits from the AWS S3 ~sync~ command.
 #+header: :shebang "#!/usr/bin/env bash"
 #+begin_src sh :tangle tools/cmprpl
   [[ $# -eq 2 ]] || { echo "ERROR: Incorrect command line arguments"; exit 1; }
-  DIRNEW=$1
-  DIROLD=$2
+  DIR_NEW=$1
+  DIR_OLD=$2
 
-  [[ -d $DIRNEW ]] || { echo "ERROR: $DIRNEW does not exist"; exit 1; }
-  [[ -d $DIROLD ]] || { echo "CREATING: $DIROLD does not exist"; cp -a $DIRNEW $DIROLD; exit 0; }
+  [[ -d $DIR_NEW ]] || { echo "ERROR: $DIR_NEW does not exist"; exit 1; }
+  [[ -d $DIR_OLD ]] || { echo "CREATING: $DIR_OLD does not exist"; cp -a $DIR_NEW $DIR_OLD; exit 0; }
 
-  for oldfile in $DIROLD/*
+  for oldfile in $DIR_OLD/*
   do
-      newfile=$DIRNEW/$(basename $oldfile)
+      newfile=$DIR_NEW/$(basename $oldfile)
       if [[ -e $newfile ]]
       then
 	      if cmp -s $newfile $oldfile
@@ -381,9 +382,9 @@ the most benefits from the AWS S3 ~sync~ command.
       fi
   done
 
-  for newfile in $DIRNEW/*
+  for newfile in $DIR_NEW/*
   do
-      oldfile=$DIROLD/$(basename $newfile)
+      oldfile=$DIR_OLD/$(basename $newfile)
       [[ -e $oldfile ]] || { printf "${BLUE}copying NEW to OLD${CLEAR}: "
 			     cp -vp $newfile $oldfile; }
   done
