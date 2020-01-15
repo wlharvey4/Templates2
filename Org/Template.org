@@ -3,7 +3,7 @@
 #+title:TITLE
 #+subtitle:{{{version}}} {{{date}}}
 #+author:AUTHOR
-#+date:2020-01-14 00:10
+#+date:2020-01-15 07:57
 #+macro:version Version 0.0.0
 
 /{{{title}}}/ {{{version}}} compiled {{{date}}}
@@ -54,7 +54,7 @@
   ### TEXINFO
   ORG   = $(REPO).org
   TEXI  = $(REPO).texi
-  INFO  = $(REPO).info
+  INFO  = $(DIR).info
   PDF   = $(REPO).pdf
   HTML  = $(DIR)/index.html
 
@@ -236,14 +236,22 @@ filename to add to the Makefile.
 #+end_src
 
 ** Get Org Lowercase Filename
-This program simply downcases the buffer filename to use as a directory name
-for the HTML output.
+This code looks for the =#+TEXINFO_FILENAME:= in the =#+TEXINFO EXPORTS=
+subtree.  If it doesn’t exist, then it will use the lower-cased filename as a
+fallback default.
 
 #+caption:Get Org Lowercase Filename program
 #+name:get-org-lc-filename
+#+header: :results value
 #+begin_src emacs-lisp :eval yes
-(downcase (file-name-base))
+  (save-excursion
+    (if
+        (re-search-forward "^[[:space:]]+#\\+texinfo_filename:\\(.*\\)" nil t)
+        (file-name-sans-extension (match-string 1))
+      (downcase (file-name-base))))
 #+end_src
+
+#+RESULTS: get-org-lc-filename
 
 ** Get File Version
 This program scans the current buffer for the version number and places it into
@@ -376,7 +384,7 @@ the most benefits from the AWS S3 ~sync~ command.
 	          printf "${GREEN}copying OLD to NEW${CLEAR}: "
 	          cp -vp $oldfile $newfile
 	      else
-	          printf "${MAGENTA}copying NEW to OLD${CLEAR}: "
+	          printf "${PURPLE}copying NEW to OLD${CLEAR}: "
 	          cp -vp $newfile $oldfile
 	      fi
       else
@@ -388,7 +396,7 @@ the most benefits from the AWS S3 ~sync~ command.
   for newfile in $DIR_NEW/*
   do
       oldfile=$DIR_OLD/$(basename $newfile)
-      [[ -e $oldfile ]] || { printf "${BLUE}copying NEW to OLD${CLEAR}: "
+      [[ -e $oldfile ]] || { printf "${BLUE}adding NEW to OLD${CLEAR}: "
 			     cp -vp $newfile $oldfile; }
   done
 #+end_src
@@ -462,21 +470,25 @@ subtree.
   an Org file with a current Build Tools subtree."
     (interactive "ffile: ")
     (require (quote org))
-    (save-excursion
-      (set-buffer
-       (find-file-noselect "~/Dev/Templates2/Org/Template.org"))
-      (goto-char (point-min))
-      (search-forward "* Build Tools")
-      (org-beginning-of-line)
-      (org-copy-subtree)
-      (set-buffer
-       (find-file-noselect of-filenm))
-      (goto-char (point-min))
-      (search-forward "* Build Tools")
-      (org-beginning-of-line)
-      (org-yank)
-      (org-cut-subtree)
-      (save-buffer)))
+    (save-current-buffer
+	(set-buffer
+	 (find-file-noselect "~/Dev/Templates2/Org/Template.org"))
+	(save-excursion
+	  (goto-char (point-min))
+	  (search-forward "* Build Tools")
+	  (org-beginning-of-line)
+	  (org-copy-subtree))
+	(set-buffer
+	 (find-file-noselect of-filenm))
+	(save-excursion
+	  (goto-char (point-min))
+	  (search-forward "* Build Tools")
+	  (org-beginning-of-line)
+	  (org-yank)
+	  (org-cut-subtree)
+	  (org-backward-heading-same-level 1)
+	  (save-buffer)
+	  (org-babel-tangle))))
 #+end_src
 
 * List of Programs
